@@ -1,0 +1,48 @@
+[package]
+name = "spider_solitaire"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+description = "Spider solitaire that works offline: a small static web app built from the Rust PWA template"
+
+[lib]
+name = "spider_solitaire"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+# Host-side build script. `serde_json` assembles the manifest so its icon list
+# cannot drift from what was actually rasterized; `usvg`/`resvg`/`tiny-skia`
+# derive the install PNGs from `assets/icon.svg`. These are build-time only and
+# are never compiled into the wasm.
+[build-dependencies]
+usvg = { version = "0.48", default-features = false }
+resvg = { version = "0.48", default-features = false }
+tiny-skia = "0.12"
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# A caret, not an exact pin: `wasm-bindgen-futures`, `js-sys` and `web-sys`
+# each depend on one exact `wasm-bindgen`, so `Cargo.lock` decides the version
+# whichever way this line is written. The bindings generator must be that same
+# version -- a mismatch fails at load time in the browser, not at compile time.
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+# The subset this app actually uses. Do not paste a superset: every feature
+# pulls generated bindings you do not need into the wasm.
+web-sys = { version = "0.3", features = [
+  "Window", "Document", "Element", "HtmlElement", "HtmlButtonElement",
+  "HtmlSelectElement", "HtmlInputElement", "Node", "Event", "EventTarget",
+  "KeyboardEvent", "PointerEvent", "MouseEvent", "AddEventListenerOptions",
+  "ResizeObserver", "ResizeObserverEntry", "Navigator", "Storage",
+  "ServiceWorkerContainer", "ServiceWorkerRegistration", "ServiceWorker",
+  "ServiceWorkerState", "RegistrationOptions", "console", "Location", "Url"
+] }
+
+[lints.rust]
+warnings = "deny"
+
+[profile.release]
+strip = true
+lto = true
+opt-level = "s"
