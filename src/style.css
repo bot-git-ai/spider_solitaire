@@ -296,9 +296,17 @@ h1 {
 }
 
 /* The card. The width and height are set on #board, one pair for the whole
-   deck, so every measurement inside a face scales with it. This block is shared
-   verbatim with Spider Solitaire: if a card looks right in one game it looks
-   right in the other, and a change belongs in both.
+   deck, so every measurement inside a face scales with it.
+
+   THIS BLOCK IS THE SHARED CARD FORMAT. It is carried, byte for byte, by the
+   other solitaire in this family — Klondike and Spider are separate
+   repositories, so nothing enforces that, and the rule is that a change here
+   belongs in both. Everything from this comment down to the end of `.pip` is
+   the format, together with the colour tokens `--card-face`, `--card-ink`,
+   `--card-red`, `--card-back`, `--back-line` and `--card-font` in the
+   palette above. What a game adds *outside* this block is its own: a rule
+   about a pile, a lifted run or a stock badge is not part of it. If the two
+   files differ anywhere inside this block, one of them is wrong.
 
    Cards are placed with `left`/`top`, not `transform`, and that is a decision
    rather than an oversight. A transform transition is compositor-driven: a
@@ -338,12 +346,6 @@ h1 {
 }
 
 .card.red { color: var(--card-red); }
-
-/* A card that has left the board — one of the thirteen in a completed run. The
-   element stays, because the deck is built once and never rebuilt, but it is
-   not drawn. `!important` on the display is what beats the `.card` block's own
-   layout without a second rule for every state. */
-.card.gone { display: none !important; }
 
 .face, .back {
   position: absolute;
@@ -449,6 +451,12 @@ h1 {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
+
+/* A card that has left the board — one of the thirteen in a completed run. This
+   game's own rule, not part of the shared card format: Klondike has no card
+   that leaves the board. The element stays, because the deck is built once and
+   never rebuilt, but it is not drawn. */
+.card.gone { display: none !important; }
 
 @keyframes hint {
   from { filter: brightness(1); }
