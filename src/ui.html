@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Two theme colours, one per scheme, and no single one that has to guess: an
+     installed app's status bar is painted from these, so one hardcoded value
+     would put a dark bar over a light page (or the reverse) until the reader
+     changed their phone. The manifest deliberately carries no `theme_color` for
+     the same reason — an installed app's chrome cannot express a scheme
+     variant, so it would override both of these. -->
+<meta name="theme-color" content="#eef1f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Spider solitaire with one, two and four suit deals, hints and undo, that works offline.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Spider Solitaire</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<!-- The SVG is the icon: the committed source of truth, scaled by the browser.
+     The PNGs beside it are rasterized from this same file at build time, for
+     the manifest and for iOS. -->
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header>
+  <h1 id="title">Spider Solitaire</h1>
+  <span id="variant">two suits</span>
+</header>
+
+<!-- The three facts about this game. A clock that announced every second would
+     be unbearable with a screen reader, so these are plain text and #status
+     below is the one live region. The two facts that belong to the board — the
+     runs completed and the deals left in the stock — are drawn on the board
+     itself, beside the things they are about. -->
+<div class="facts">
+  <span class="fact"><span class="fact-label">Time</span> <strong id="clock">0:00</strong></span>
+  <span class="fact"><span class="fact-label">Moves</span> <strong id="moves">0</strong></span>
+  <span class="fact" id="score-fact"><span class="fact-label">Score</span> <strong id="score">500</strong></span>
+</div>
+
+<!-- The board. The stock, the runs completed and the ten columns are all
+     written into it by the app: nothing about a layout of this game is
+     meaningful in static markup when the deck is still being shuffled. -->
+<div class="board-wrap">
+  <div id="board" role="group" aria-labelledby="title" aria-describedby="help"></div>
+</div>
+
+<p id="help" class="visually-hidden">Tap a card to pick up its run, then tap where it should go. Drag works too. Arrow keys move around the board, Enter picks up or drops, Space deals from the stock, U undoes and H hints.</p>
+
+<div class="tools">
+  <button id="undo" type="button">Undo</button>
+  <button id="hint" type="button">Hint</button>
+  <button id="deal" type="button">Deal</button>
+  <input id="menu" type="checkbox" class="menu-toggle visually-hidden" aria-controls="menu-panel">
+  <label for="menu" class="menu-button"><span>Menu</span></label>
+</div>
+
+<!-- What just happened, in words, for anyone who is not watching the board.
+     Empty until there is something to say: a live region that ships with text
+     in it announces that text on load, which is noise. -->
+<p id="status" role="status" aria-live="polite"></p>
+
+<!-- The sheet holds everything that is not part of playing: the difficulty and
+     scoring of the *next* deal, and the two buttons that throw the current one
+     away. It is folded away because a player mid-game wants four controls, not
+     eight, and the destructive ones should not sit under a thumb aiming for
+     Undo. The panel is opened by a change listener on the checkbox (one line in
+     `ui.rs`); a panel shown by a click listener alone does not open on a phone. -->
+<div id="menu-panel" hidden>
+  <label for="menu" class="menu-scrim"></label>
+  <div class="menu-sheet">
+    <div class="menu-head">
+      <span>Game details</span>
+      <label for="menu" class="menu-done">Done</label>
+    </div>
+
+    <p id="game-summary" class="menu-summary"></p>
+
+    <label for="difficulty">Difficulty</label>
+    <select id="difficulty">
+      <option value="easy">Easy — one suit</option>
+      <option value="medium">Medium — two suits</option>
+      <option value="hard">Hard — four suits</option>
+    </select>
+    <p id="difficulty-note" class="menu-note"></p>
+
+    <label for="scoring">Scoring</label>
+    <select id="scoring">
+      <option value="standard">Standard</option>
+      <option value="off">No score</option>
+    </select>
+    <p id="scoring-note" class="menu-note"></p>
+
+    <div class="menu-actions">
+      <button id="new" type="button">New game</button>
+      <button id="restart" type="button">Restart deal</button>
+    </div>
+
+    <details class="rules">
+      <summary>How to play</summary>
+      <p>Build every column downwards, in any suit. A run of cards in one suit, descending, can be picked up and moved together — a run of thirteen from king down to ace is lifted off the board, and eight of those win the game. The stock deals one card to every column, but only while no column is empty. When the stock runs out, there is nothing left to turn over: the board is all there is.</p>
+    </details>
+  </div>
+</div>
+
+<!-- The victory panel. It covers the board, so it is a dialog rather than a line
+     under a game the player has finished looking at. `hidden` is explicit and the
+     stylesheet preserves it. -->
+<div id="won" hidden role="dialog" aria-modal="true" aria-labelledby="won-title">
+  <div class="won-card">
+    <p class="won-kicker">All eight runs</p>
+    <h2 id="won-title">You won</h2>
+    <p id="won-detail"></p>
+    <button id="won-new" type="button">New game</button>
+  </div>
+</div>
+
+<p id="error" role="alert" hidden></p>
+
+<noscript>This solitaire needs JavaScript enabled. Turn it on and reload to play.</noscript>
+<!-- The one script in the document: it hands over to the generated bindings and
+     does nothing else. No state, no rendering, no event handling — everything
+     below the import is the failure message for the case where the app never
+     loads, which is a real case worth saying something about. -->
+<script type="module">
+import('./app.js').then(m => m.default()).catch(error => {
+  const box = document.getElementById('error');
+  box.hidden = false;
+  box.textContent = 'Spider Solitaire could not start. Reload the page, or check your connection. ' + error;
+});
+</script>
+</body>
+</html>

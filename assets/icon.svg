@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Spider Solitaire">
+  <!-- The icon: a spider, for the game whose name is one.
+
+       The drawing sits inside the maskable safe zone. Android crops an
+       installed app's icon with whatever mask the launcher uses — a circle, a
+       squircle, a rounded square — and only the middle 80% of the image is
+       guaranteed to survive it, so anything drawn up to the edges loses its
+       edges. The spider below spans 320 of 512 — 62.5%, the proportion the
+       family uses — which leaves room for the mask, for the launcher's own
+       padding, and for the legs to read as legs rather than as a fringe.
+
+       One colour, `#444444`, on a transparent ground — the whole family's icon
+       colour. A static icon is drawn on surfaces it cannot know, so the bar is
+       the 3:1 for a graphical object rather than the 4.5:1 for text: `#444444`
+       reaches 8.28:1 on the light surface and 1.95:1 on the dark one — below it
+       on dark, a deliberate trade the family makes for one colour everywhere.
+       Every install icon is rasterized from this file at build time; this is the
+       source of truth, never a PNG.
+
+       The legs are drawn as bent elbows rather than straight spokes: at
+       launcher size a spider is told apart from a star by the shape of its
+       legs, and a straight one reads as a snowflake. -->
+  <g fill="none" stroke="#444444" stroke-width="26" stroke-linecap="round"
+     stroke-linejoin="round">
+    <!-- Four legs a side, each out from the body, up at the knee, and down. -->
+    <path d="M206 214 L 150 168 L 132 100"/>
+    <path d="M200 244 L 138 232 L 96 186"/>
+    <path d="M200 274 L 138 292 L 96 338"/>
+    <path d="M206 302 L 150 348 L 132 414"/>
+    <path d="M306 214 L 362 168 L 380 100"/>
+    <path d="M312 244 L 374 232 L 416 186"/>
+    <path d="M312 274 L 374 292 L 416 338"/>
+    <path d="M306 302 L 362 348 L 380 414"/>
+  </g>
+  <!-- Body and head as one shape: two discs joined, so no seam shows where they
+       meet, and each is two half arcs. -->
+  <path fill="#444444" d="M186 258a70 70 0 1 0 140 0a70 70 0 1 0-140 0z
+                           M212 170a44 44 0 1 0 88 0a44 44 0 1 0-88 0z"/>
+</svg>
