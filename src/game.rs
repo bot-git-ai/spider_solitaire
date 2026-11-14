@@ -314,6 +314,29 @@ impl Pile {
         }
     }
 
+    /// Where this pile sits on the shared board.
+    ///
+    /// The board numbers the top row left to right and the columns left to
+    /// right; this is the only place the game's names and the board's places
+    /// are tied together, so there is one answer rather than two.
+    #[must_use]
+    pub fn place(self) -> crate::board::Place {
+        match self {
+            Self::Stock => crate::board::Place::Top(0),
+            Self::Tableau(index) => crate::board::Place::Column(index),
+        }
+    }
+
+    /// The pile a board place means, if this game has one there.
+    #[must_use]
+    pub fn from_place(place: crate::board::Place) -> Option<Self> {
+        match place {
+            crate::board::Place::Top(0) => Some(Self::Stock),
+            crate::board::Place::Column(index) if index < COLUMNS => Some(Self::Tableau(index)),
+            _ => None,
+        }
+    }
+
     /// A pile from its DOM token, rejecting anything out of range.
     #[must_use]
     pub fn from_slug(slug: &str) -> Option<Self> {
@@ -386,7 +409,10 @@ pub struct Report {
 }
 
 impl Report {
-    fn quiet(words: impl Into<String>) -> Self {
+    /// A report with nothing to shout about. Used by the page for the cases
+    /// where a press means nothing at all.
+    #[must_use]
+    pub fn quiet(words: impl Into<String>) -> Self {
         Self {
             won: false,
             words: words.into(),
@@ -863,8 +889,14 @@ impl Game {
         self.selection = None;
         for column in 0..COLUMNS {
             if let Some(card) = self.stock.pop() {
-                self.tableau[column].cards.push(card);
-                self.tableau[column].up = self.tableau[column].len() - 1;
+                let pile = &mut self.tableau[column];
+                pile.cards.push(card);
+                // The new card is the only face-up one a deal may add. It must
+                // NOT turn the rest of the column over: `up` is the index of the
+                // *first* face-up card, so setting it to `len - 1` deals one
+                // card face up and the whole column face down — the defect a
+                // player hit on the first deal of their first game.
+                pile.up = pile.up.min(pile.cards.len() - 1);
             }
         }
         self.moves = self.moves.saturating_add(1);
@@ -1688,6 +1720,86 @@ mod tests {
         assert!(!game.can_deal());
         let refused = game.deal();
         assert!(refused.words.contains("Fill every empty column"));
+    }
+
+    /// A deal adds one face-up card to each column and turns nothing over.
+    ///
+    /// The reported defect: after a deal, every card in every column was face
+    /// down except the new one. The cause was one line — `up = len - 1` — which
+    /// is the index of the *first* face-up card, so it hid the whole column
+    /// instead of adding a card to it.
+    #[test]
+    fn a_deal_adds_one_face_up_card_and_turns_nothing_else() {
+        let mut game = Game::new(Difficulty::Medium, Scoring::Standard, 12);
+        let cards = game.cards.clone();
+        let mut next = cards
+            .iter()
+            .enumerate()
+            .map(|(index, _)| u16::try_from(index).expect("a deck index fits a u16"));
+        let mut take = || next.next().expect("the deck has cards");
+
+        // Column 0: one face-down card, then two face up. Column 3: all face up.
+        let down = take();
+        let up_one = take();
+        let up_two = take();
+        game.tableau[0].cards = vec![down, up_one, up_two];
+        game.tableau[0].up = 1;
+        let visible = [take(), take()];
+        game.tableau[3].cards = visible.to_vec();
+        game.tableau[3].up = 0;
+        let before = [
+            (game.tableau[0].up, game.tableau[0].len()),
+            (game.tableau[3].up, game.tableau[3].len()),
+        ];
+
+        game.deal();
+
+        assert_eq!(
+            game.tableau[0].up, before[0].0,
+            "the cards a column already had face up must stay face up"
+        );
+        assert_eq!(game.tableau[0].len(), before[0].1 + 1);
+        assert!(
+            game.tableau[0].is_face_up(1) && game.tableau[0].is_face_up(2),
+            "the old face-up cards were turned over"
+        );
+        assert!(game.tableau[0].is_face_up(3), "the dealt card is face up");
+        assert!(
+            !game.tableau[0].is_face_up(0),
+            "a card that was face down stays face down"
+        );
+        assert_eq!(game.tableau[3].up, before[1].0, "nothing was turned over");
+        assert_eq!(game.tableau[3].len(), before[1].1 + 1);
+    }
+
+    /// The same rule for every column, at every deal: the number of face-up
+    /// cards grows by exactly one per deal, never shrinks.
+    #[test]
+    fn every_deal_leaves_exactly_one_more_card_face_up_per_column() {
+        let mut game = Game::new(Difficulty::Easy, Scoring::Standard, 21);
+        let face_up = |game: &Game| -> Vec<usize> {
+            (0..COLUMNS)
+                .map(|column| {
+                    let pile = &game.tableau[column];
+                    (pile.up..pile.cards.len()).count()
+                })
+                .collect()
+        };
+        let mut before = face_up(&game);
+        for _ in 0..5 {
+            assert!(game.can_deal(), "the stock should be dealable");
+            game.deal();
+            let after = face_up(&game);
+            for column in 0..COLUMNS {
+                assert!(
+                    after[column] > before[column],
+                    "column {column}: {} face-up cards became {}",
+                    before[column],
+                    after[column]
+                );
+            }
+            before = after;
+        }
     }
 
     #[test]

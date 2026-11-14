@@ -44,15 +44,28 @@
      written into it by the app: nothing about a layout of this game is
      meaningful in static markup when the deck is still being shuffled. -->
 <div class="board-wrap">
-  <div id="board" role="group" aria-labelledby="title" aria-describedby="help"></div>
+  <div id="board" role="group" aria-labelledby="title" aria-describedby="help">
+    <div id="runs" class="runs" role="img" aria-label="no runs completed yet">
+      <span id="runs-label" class="runs-label">0 of 8</span>
+      <span id="run-0" class="run-pip"></span>
+      <span id="run-1" class="run-pip"></span>
+      <span id="run-2" class="run-pip"></span>
+      <span id="run-3" class="run-pip"></span>
+      <span id="run-4" class="run-pip"></span>
+      <span id="run-5" class="run-pip"></span>
+      <span id="run-6" class="run-pip"></span>
+      <span id="run-7" class="run-pip"></span>
+    </div>
+    <span id="deals" class="badge" aria-hidden="true">5</span>
+  </div>
 </div>
 
-<p id="help" class="visually-hidden">Tap a card to pick up its run, then tap where it should go. Drag works too. Arrow keys move around the board, Enter picks up or drops, Space deals from the stock, U undoes and H hints.</p>
+<p id="help" class="visually-hidden">Tap a card to pick up its run, then tap where it should go. Drag works too. Arrow keys move around the board, Enter picks up or drops, A deals from the stock, U undoes and H hints.</p>
 
 <div class="tools">
   <button id="undo" type="button">Undo</button>
   <button id="hint" type="button">Hint</button>
-  <button id="deal" type="button">Deal</button>
+  <button id="action" type="button">Deal</button>
   <input id="menu" type="checkbox" class="menu-toggle visually-hidden" aria-controls="menu-panel">
   <label for="menu" class="menu-button"><span>Menu</span></label>
 </div>
@@ -79,7 +92,7 @@
     <p id="game-summary" class="menu-summary"></p>
 
     <label for="difficulty">Difficulty</label>
-    <select id="difficulty">
+    <select id="difficulty" data-option>
       <option value="easy">Easy — one suit</option>
       <option value="medium">Medium — two suits</option>
       <option value="hard">Hard — four suits</option>
@@ -87,7 +100,7 @@
     <p id="difficulty-note" class="menu-note"></p>
 
     <label for="scoring">Scoring</label>
-    <select id="scoring">
+    <select id="scoring" data-option>
       <option value="standard">Standard</option>
       <option value="off">No score</option>
     </select>

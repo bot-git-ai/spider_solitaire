@@ -322,9 +322,12 @@ fn the_service_worker_updates_only_when_the_page_asks() {
 /// only when it was already controlled. A first visit claims its page as the
 /// worker activates, and reloading that page would cost the reader a second
 /// start for nothing.
+///
+/// The worker handshake is the *shell's*, shared with Spider Solitaire, so this
+/// reads the shell rather than the app — which is the point of the split.
 #[test]
 fn the_page_takes_an_installed_worker_over_with_a_reload() {
-    let code = strip_rust_comments(&read("src/ui.rs"));
+    let code = strip_rust_comments(&read("src/shell.rs"));
     assert!(
         code.contains("registration.waiting()") && code.contains(".installing()"),
         "the page must look at both workers an update can leave behind"
@@ -365,7 +368,7 @@ fn the_worker_never_answers_outside_its_own_directory() {
 /// an earlier version.
 #[test]
 fn the_page_states_the_scope_and_releases_a_wider_one() {
-    let ui = strip_rust_comments(&read("src/ui.rs"));
+    let ui = strip_rust_comments(&read("src/shell.rs"));
     assert!(
         ui.contains("const SCOPE: &str = \"./\";"),
         "the scope must be the app's own directory, relative"
@@ -478,17 +481,42 @@ fn every_element_the_shell_renders_is_written_by_the_app() {
         })
         .collect();
     assert!(ids.contains(&"board"), "the shell must carry the board");
-    let ui = read("src/ui.rs");
+    // Every element the page writes is written by the shared shell, by the
+    // board, or by this game's own ui.rs. A test that looked in one file would
+    // be checking the wrong copy of the truth.
+    let ui = [
+        read("src/ui.rs"),
+        read("src/shell.rs"),
+        read("src/board_ui.rs"),
+    ]
+    .join("\n");
     for id in ids {
         if matches!(
             id,
-            "error" | "help" | "title" | "score-fact" | "won" | "won-title" | "runs-label"
+            "error" | "help" | "title" | "score-fact" | "won" | "won-title"
         ) {
             continue; // the failure box, the description, and structural hooks
         }
+        // A menu note's id is built from its select's — `difficulty-note` from
+        // `difficulty` — because the shell binds a select and writes its note
+        // from one option list. Checking for the composed name would be asking
+        // the test to know the concatenation.
+        // A menu note's id is built from its select's, and a run pip's from its
+        // index — `run-3` from `run-`. Checking the composed name would be
+        // asking the test to know the concatenation.
+        if id.starts_with("run-") {
+            // A run pip is written by index from one loop; the loop is the
+            // writer, so the family `run-{{index}}` is what must exist.
+            assert!(
+                ui.contains("format!(\"run-{index}\"") || ui.contains("\"run-{index}\""),
+                "#{id} is a run pip but no loop writes the run-{{index}} family"
+            );
+            continue;
+        }
+        let checked = id.strip_suffix("-note").unwrap_or(id);
         assert!(
-            ui.contains(&format!("\"{id}\"")),
-            "#{id} is rendered by the shell but src/ui.rs never touches it"
+            ui.contains(&format!("\"{checked}\"")),
+            "#{id} is rendered by the shell but nothing writes to it"
         );
     }
 }
@@ -496,12 +524,23 @@ fn every_element_the_shell_renders_is_written_by_the_app() {
 /// The board's own vocabulary is shared with the rules, not invented twice.
 #[test]
 fn the_page_and_the_rules_agree_on_the_piles() {
+    // A place is a `Place`, and the board spells it while the game numbers it.
+    // The two are tied together in exactly one place: `Pile::place`.
     let ui = read("src/ui.rs");
     assert!(
-        ui.contains("Pile::from_slug(&slug)") && ui.contains("data-pile"),
-        "the page must read a pile's identity from the DOM token the rules define"
+        ui.contains("pile.place()") || ui.contains("Pile::place"),
+        "the page must ask the rules where a pile sits on the board"
     );
     let game = read("src/game.rs");
+    assert!(
+        game.contains("fn place(self) -> crate::board::Place"),
+        "the game owns the only mapping from a pile to a board place"
+    );
+    let board = read("src/board.rs");
+    assert!(
+        board.contains("fn from_slug(slug: &str) -> Option<Self>"),
+        "the board owns the spelling of a place"
+    );
     for token in ["\"stock\"", "\"tableau-\""] {
         assert!(
             game.contains(token),
@@ -510,6 +549,111 @@ fn the_page_and_the_rules_agree_on_the_piles() {
     }
 }
 
+/// The shared modules are game-agnostic.
+///
+/// `board.rs`, `board_ui.rs`, `shell.rs` and `card.rs` are carried, byte for
+/// byte, by Spider Solitaire. Nothing on this host enforces that — they are
+/// separate repositories — so the enforcement has to be structural: a shared
+/// file that names Klondike, or a foundation, or a run, cannot be shared, and
+/// this test says so at the moment the mistake is made rather than the next
+/// time somebody ports a change.
+///
+/// The words are the game's vocabulary, not English's: "column" and "card" are
+/// the board's own, and a game says "foundation", "waste", "run" and "suit".
+#[test]
+fn the_shared_modules_name_neither_game() {
+    let shared = [
+        ("src/board.rs", read("src/board.rs")),
+        ("src/board_ui.rs", read("src/board_ui.rs")),
+        ("src/shell.rs", read("src/shell.rs")),
+        ("src/card.rs", read("src/card.rs")),
+    ];
+    let banned = [
+        // The games themselves.
+        "klondike",
+        "spider",
+        // One game's piles and rules.
+        "foundation",
+        "waste",
+        "redeal",
+        "vegas",
+        "suit sequence",
+        "completed run",
+    ];
+    for (name, text) in &shared {
+        // Comments explain what the board is *for*, and a comment that mentions
+        // the games is honest documentation. Only code is held to the rule.
+        let code = strip_rust_comments(text).to_lowercase();
+        for word in banned {
+            assert!(
+                !code.contains(word),
+                "{name} is shared with the other solitaire, and its code says \
+                 \"{word}\". A shared module cannot name one game's piles or rules; \
+                 keep those in the app's own ui.rs and game.rs."
+            );
+        }
+    }
+}
+
+/// The shared files carry their copy's rule, in the place a copier will look.
+///
+/// They are carried, byte for byte, by the other solitaire, and nothing on this
+/// host enforces that: they are separate repositories. So the *files* say so —
+/// a reader editing `board.rs` has to be told it is also Spider's board — and
+/// this test makes sure the note is not quietly deleted.
+#[test]
+fn the_shared_files_say_they_are_shared() {
+    for name in [
+        "src/board.rs",
+        "src/board_ui.rs",
+        "src/shell.rs",
+        "src/card.rs",
+    ] {
+        let text = read(name);
+        let header = &text[..text.len().min(2500)].to_lowercase();
+        assert!(
+            header.contains("both") && header.contains("solitaire"),
+            "{name} is carried by both apps; its header must say so, or the next \
+             reader edits one copy and leaves the other behind"
+        );
+        assert!(
+            header.contains("byte for byte"),
+            "{name} says how it is shared, not merely that it is"
+        );
+    }
+}
+
+/// The shared modules really are four files, not a copy in one app.
+///
+/// Each app's own `ui.rs` must be small: it is a `Rules` implementation, not a
+/// second board. A rough size check is crude, but it catches the real failure —
+/// somebody pasting the board back into the app "just for this one rule".
+#[test]
+fn each_app_keeps_only_its_own_rules() {
+    let ui = read("src/ui.rs");
+    let game = read("src/game.rs");
+    let shared =
+        read("src/board.rs").len() + read("src/board_ui.rs").len() + read("src/shell.rs").len();
+    assert!(
+        ui.len() < shared,
+        "the app's ui.rs ({} bytes) should be a Rules implementation, not the board \
+         (the shared modules are {shared} bytes)",
+        ui.len()
+    );
+    assert!(
+        !ui.contains("pointerdown") && !ui.contains("ResizeObserver"),
+        "the app's ui.rs binds no DOM events: the shared shell does that"
+    );
+    assert!(
+        game.len() > ui.len(),
+        "the rules belong in game.rs, which is where the tests are"
+    );
+}
+
+/// The icon is the committed SVG, one colour, and the family's colour.
+///
+/// The digest is pinned so that an "improved" icon is a deliberate act with a
+/// visible diff rather than a silent one.
 /// The board is Spider's, not a solitaire board with the names changed.
 ///
 /// Ten columns and eight runs are the two numbers the whole game rests on, and
@@ -544,10 +688,6 @@ fn the_game_is_spider_and_not_a_klondike_with_new_words() {
     }
 }
 
-/// The icon is the committed SVG, one colour, and the family's colour.
-///
-/// The digest is pinned so that an "improved" icon is a deliberate act with a
-/// visible diff rather than a silent one.
 const ICON_SHA256: &str = "444d7d5d3e1516796f7829779d8d9ff7a145aa38b80de4842bff151a35342b5a";
 
 #[test]

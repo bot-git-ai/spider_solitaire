@@ -14,8 +14,13 @@
 
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+pub mod board;
+#[cfg(target_arch = "wasm32")]
+pub mod board_ui;
 pub mod card;
 pub mod game;
+#[cfg(target_arch = "wasm32")]
+pub mod shell;
 
 #[cfg(target_arch = "wasm32")]
 pub mod ui;
