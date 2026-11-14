@@ -34,6 +34,7 @@ web-sys = { version = "0.3", features = [
   "Window", "Document", "Element", "HtmlElement", "HtmlButtonElement",
   "HtmlSelectElement", "HtmlInputElement", "Node", "Event", "EventTarget",
   "KeyboardEvent", "PointerEvent", "MouseEvent", "AddEventListenerOptions",
+  "DomRect", "CssStyleDeclaration", "NodeList", "Node",
   "ResizeObserver", "ResizeObserverEntry", "Navigator", "Storage",
   "ServiceWorkerContainer", "ServiceWorkerRegistration", "ServiceWorker",
   "ServiceWorkerState", "RegistrationOptions", "console", "Location", "Url"

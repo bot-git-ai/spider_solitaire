@@ -6,17 +6,32 @@ What follows is what is specific to this game.
 
 ## Shape
 
+Four of these files are **shared, byte for byte, with Solitaire**:
+
 - `src/card.rs` — the deck: `Rank`, `Suit`, `Card`, the two-character storage
-  code, and the printed short form. No `web-sys`, so `cargo test` runs it.
+  code, the printed short form.
+- `src/board.rs` — the geometry: where every card and pile sits, which card a
+  point is over, and where a dragged stack lands. Pure arithmetic, no web-sys.
+- `src/board_ui.rs` — the DOM: one element per deck index, a render that moves
+  cards rather than rebuilding them, and the gesture state machine.
+- `src/shell.rs` — the page: the header, the four buttons, the folded menu, the
+  clock, saved state, the service worker.
+
+This game's own files:
+
 - `src/game.rs` — Spider: the deal, the move grammar, completed runs, the score,
   the undo history, the hint heuristic, the save format, and **every word the
-  page shows**. Also `web-sys`-free.
-- `src/ui.rs` — the browser layer, compiled for `wasm32` only: layout geometry,
-  the elements, pointer and keyboard handling, timers, storage, the service
-  worker. It decides nothing about the game.
+  page shows**. No `web-sys`, so `cargo test` runs it.
+- `src/ui.rs` — a `Rules` implementation: how a scene is built from this game,
+  what each intent means, and the two decorations this board has. It binds no
+  DOM events and holds no elements.
 - `src/ui.html`, `src/style.css`, `src/service-worker.js`, `build.rs`,
   `assets/icon.svg` — the shell, the styles, the worker, the site writer and the
   icon, as the template describes them.
+
+The shared files carry a test that keeps them shareable: none of them may name
+either game, nor either game's piles or rules. Editing one is editing both apps,
+and the rule is that a change belongs in both.
 
 ## Decisions
 
@@ -61,6 +76,12 @@ cards that run took — which is the case a naive per-card check gets wrong, and
 is covered by its own test. A save that claims a run while all thirteen of its
 cards are still on the board is refused.
 
+**A deal adds one face-up card to each column and turns nothing over.** `up` is
+the index of the *first* face-up card, so `up = len - 1` after a deal hides the
+whole column. That was a real defect, reported from play; it is now pinned by
+two tests, one on a hand-built column and one that deals five times and checks
+the face-up count never goes down.
+
 **Cards are placed with `left`/`top`, not `transform`.** A transform transition
 is compositor-driven: a renderer that does not advance animations draws every
 card in the top-left corner — a board that looks empty and works. `left`/`top`
@@ -71,25 +92,17 @@ rebuilt, so when a run is lifted its thirteen elements stay in the document.
 They are hidden *and* stripped of their pile and position, so nothing that walks
 the board by name can find a ghost.
 
-**The board is its own stacking context (`isolation: isolate`).** Cards carry
-`z-index` values in the hundreds so a column stacks correctly; without the
-isolation they paint over the menu sheet and the victory dialog.
-
 **The face has a compact form, chosen from the card's width.** Ten columns on a
-phone make cards too narrow for the big centre pip to be anything but
-decoration competing with the rank in the corner, so below 60px the pip goes and
-the corner grows — the same trade a bridge-size printed card makes. The class is
-set from Rust, where the card's actual width is known, rather than from a media
-query on the viewport: the board's width is what matters, and it is not the
-window's.
+phone make cards too narrow for the big centre pip to be anything but decoration
+competing with the rank in the corner, so below 60px the pip goes and the corner
+grows — the same trade a bridge-size printed card makes. The class is set from
+Rust, where the card's actual width is known, rather than from a media query on
+the viewport: the board's width is what matters, and it is not the window's.
 
-**One listener per board, not one per card.** A press is read off the element it
-landed on; that element carries its column and its position. Cards are never
-rebuilt, so a drag in progress survives a repaint.
-
-**The menu is a checkbox.** Opening it depends on `change` on a checkbox whose
-label is the button, and the scrim and Done are labels for the same box. A panel
-opened only by a `click` listener does not open on a phone.
+**The board's decorations are the game's.** The strip of completed runs and the
+count on the stock are drawn by this app's `decorate`, over a board that knows
+nothing about runs. They are anchored to the board's own layout — x from the
+columns, y from the top row — so they move with it at any size.
 
 ## What is on the board rather than in the header
 
@@ -107,13 +120,14 @@ cargo clippy --locked --lib --target wasm32-unknown-unknown -- -D warnings
 ```
 
 Then both build steps, in order, and check `dist/` — see `README.md`. The built
-site was also driven in a headless browser against the real page: a deal, a
-tap-to-move, a drag, an undo, the menu's difficulty and scoring change, a
-completed run lifting thirteen cards off the board (checked both as a rule test
-and in the browser, with the cards disappearing and the score rising by 100), and
-the eighth run taking the game to the victory dialog. That is not a committed
-test — the browser is not part of the toolchain here — and it is written down so
-the next reader knows what "verified" covered.
+site was also driven in a headless browser against the real page with real
+pointer events: a deal (checking that every column gained exactly one face-up
+card and no face-down card changed), a drag with the drop ring visible mid-flight
+and the card following the finger to the pixel, a tap-to-move, an undo, a
+completed run lifting thirteen cards off the board and filling a pip, and the
+service worker taking control. Those checks are not committed tests — the
+browser is not part of the toolchain here — and they are written down so the next
+reader knows what "verified" covered.
 
 What is *not* covered by a test: the layout's geometry. Card sizes, fan offsets
 and the compact-face threshold all depend on the box the board gets, and the

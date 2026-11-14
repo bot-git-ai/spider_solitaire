@@ -3,12 +3,11 @@
 //! No `web-sys`, no `js-sys`, no `wasm-bindgen`: this module compiles natively
 //! and its tests run under plain `cargo test`.
 //!
-//! **This file is the card format shared by this app and Spider Solitaire.**
-//! The two games are separate repositories, so the format is kept in step by
-//! hand: the same `Rank`/`Suit` order, the same two-letter storage code, and the
-//! same printed face. `src/style.css` carries the other half of it — the
-//! `.card` block, also identical. Change one and change the other, or the two
-//! solitaires stop looking like one family.
+//! **This file is carried, byte for byte, by both solitaires in this family** —
+//! Solitaire and Spider Solitaire. They are separate repositories, so nothing
+//! enforces that; the rule is that a change here belongs in both, or the two
+//! games stop agreeing about what a card is. `src/style.css` carries the other
+//! half of the card format: the `.card` block, also identical.
 
 use std::fmt;
 

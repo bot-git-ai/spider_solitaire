@@ -61,9 +61,18 @@ tree, so cargo would otherwise skip the second build and copy nothing.
 
 ## Layout
 
+Four of these files are shared with
+[Solitaire](https://github.com/bot-git-ai/solitaire), byte for byte:
+
     src/card.rs            the deck, the printed face and the stored code
+    src/board.rs           where every card and pile sits, and what a point means
+    src/board_ui.rs        the card elements, the painting and the gestures
+    src/shell.rs           the header, the buttons, the menu, the clock, offline
+
+And this game's own:
+
     src/game.rs            the rules, the score, the undo history, the words
-    src/ui.rs              the browser layer: the only file that touches the DOM
+    src/ui.rs              how this game fills a scene, and what a gesture means
     src/ui.html            the static shell
     src/style.css          the styles, including the card format
     src/service-worker.js  install, activate, fetch; one __VERSION__ placeholder
@@ -74,11 +83,15 @@ tree, so cargo would otherwise skip the second build and copy nothing.
 
 ## Card format
 
-`src/card.rs` and the `.card` block in `src/style.css` are shared with
-[Solitaire](https://github.com/bot-git-ai/solitaire): the same ranks, the same
-two-letter storage code and the same printed faces. The two are separate
-repositories, so the copy is kept in step by hand — a change to one belongs in
-the other, or the two solitaires stop looking like one family.
+Both games are built on the same board: `card.rs`, `board.rs`, `board_ui.rs`,
+`shell.rs` and the `.card` block of the stylesheet are carried by both
+repositories unchanged. An app supplies a `Rules` implementation and keeps its
+rules to itself, so a fix to the board or to drag and drop is a fix in both
+games — which is exactly why they were made one.
+
+The two are separate repositories, so nothing enforces the copy; the rule is
+that a change to a shared file belongs in both, and a test keeps the shared
+files from acquiring one game's vocabulary.
 
 ## Licence
 

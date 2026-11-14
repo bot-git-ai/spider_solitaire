@@ -1,13 +1,18 @@
 /* One palette, in two schemes, and dark is the default rather than the
    override. That is the family convention and it is deliberate: `color-scheme`
    names the scheme the page is *drawn* in, so a reader who has chosen nothing
-   gets the one the app was designed in, and a reader who has chosen gets theirs.
-   Nothing here consults a script, so the choice is made before the first paint —
-   a theme applied after load would flash the wrong one first.
+   gets the one the app was designed in, and a reader who has chosen gets
+   theirs. Nothing here consults a script, so the choice is made before the
+   first paint — a theme applied after load would flash the wrong one first.
 
    The cards themselves are the same cream in both schemes. A playing card is a
    physical object, not a themed surface: a dark-mode deck would be a different
-   deck, and this app is the table around it. */
+   deck, and this app is the table around it.
+
+   THIS PALETTE IS SHARED, byte for byte, with the other solitaire in this
+   family, apart from `--page`: ten columns need more room than seven and a top
+   row. The `--card-*` tokens are part of the shared card format, which is why
+   they are here rather than beside the card block. */
 :root {
   color-scheme: dark;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -192,6 +197,9 @@ h1 {
   position: absolute;
   left: 0;
   top: 0;
+  /* Above the empty slots it covers, below the cards: the strip is a place on
+     the board, and a card dragged over it must stay on top. */
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: calc(var(--cw) * .06);
@@ -403,22 +411,50 @@ h1 {
   opacity: .92;
 }
 
-/* A compact face, for a board whose cards are small.
-   Ten columns on a phone cannot be wide, and at that size the big centre pip
-   is decoration that competes with the one thing a player reads: the rank in
-   the corner. So the pip goes and the corner grows, which is the same trade a
-   printed bridge-size card makes. The class is set from Rust, where the card's
-   width is actually known, rather than guessed at with a media query on the
-   viewport — the board's width is what matters, and it is not the window's. */
-#board.compact .pip { display: none; }
-#board.compact .corner .rank { font-size: calc(var(--cw) * .37); letter-spacing: -.05em; }
-#board.compact .corner .suit { font-size: calc(var(--cw) * .29); }
-#board.compact .card[data-rank="10"] .corner .rank { font-size: calc(var(--cw) * .3); }
-#board.compact .corner.tl { top: calc(var(--cw) * .06); left: calc(var(--cw) * .07); }
-#board.compact .corner.br { right: calc(var(--cw) * .07); bottom: calc(var(--cw) * .06); }
-#board.compact .runs-label { font-size: calc(var(--cw) * .24); }
-#board.compact .run-pip { font-size: calc(var(--cw) * .36); }
-#board.compact .badge { font-size: calc(var(--cw) * .34); }
+.card.selected {
+  box-shadow:
+    0 0 0 calc(var(--cw) * .035) var(--accent),
+    0 calc(var(--cw) * .02) calc(var(--cw) * .09) rgb(0 0 0 / 35%);
+}
+
+/* Where the held run will land, if the player lets go now. A ring rather than a
+   glow: it has to read at a glance while the finger is moving, and against a
+   white card a filled tint would wash out the rank the player is checking. */
+.card.drop-target {
+  box-shadow:
+    0 0 0 calc(var(--cw) * .045) var(--accent),
+    0 calc(var(--cw) * .02) calc(var(--cw) * .09) rgb(0 0 0 / 35%);
+}
+
+.card.hinted {
+  box-shadow:
+    0 0 0 calc(var(--cw) * .035) var(--hint),
+    0 calc(var(--cw) * .02) calc(var(--cw) * .09) rgb(0 0 0 / 35%);
+  animation: hint 1s ease-in-out infinite alternate;
+}
+
+.card.focused {
+  z-index: 800 !important;
+}
+
+/* In the air. No transition at all: every move must land exactly where the
+   pointer is, not where a tween thinks it should be, or the card lags behind the
+   finger by a frame and the whole gesture feels broken. The lift is what makes
+   it read as picked up rather than slid. */
+.card.dragging {
+  transition: none;
+  cursor: grabbing;
+  filter: brightness(1.04);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 18%),
+    0 calc(var(--cw) * .1) calc(var(--cw) * .26) rgb(0 0 0 / 38%),
+    0 calc(var(--cw) * .25) calc(var(--cw) * .6) rgb(0 0 0 / 22%);
+}
+
+/* A card that has left the board — one of the thirteen in a completed run. The
+   element stays, because the deck is built once and never rebuilt, but it is
+   not drawn. */
+.card.gone { display: none !important; }
 
 .card.selected {
   box-shadow:
